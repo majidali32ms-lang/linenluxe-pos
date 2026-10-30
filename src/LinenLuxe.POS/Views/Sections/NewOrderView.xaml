@@ -1,0 +1,847 @@
+<UserControl x:Class="LinenLuxe.POS.Views.Sections.NewOrderView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:secv="clr-namespace:LinenLuxe.POS.Views.Sections"
+             mc:Ignorable="d" d:DesignHeight="700" d:DesignWidth="900">
+
+    <UserControl.InputBindings>
+        <!-- Order-level shortcuts (modifier keys never clash with typing) -->
+        <KeyBinding Modifiers="Control" Key="T" Command="{Binding ToggleVatCommand}" />
+        <KeyBinding Modifiers="Alt" Key="S" Command="{Binding TogglePaidCommand}" />
+        <KeyBinding Modifiers="Alt" Key="U" Command="{Binding ToggleExpressCommand}" />
+        <KeyBinding Modifiers="Alt" Key="C" Command="{Binding OpenCustomerPickerCommand}" />
+        <KeyBinding Key="F2" Command="{Binding OpenCustomerPickerCommand}" />
+        <KeyBinding Modifiers="Control" Key="Return" Command="{Binding SaveOrderCommand}" />
+    </UserControl.InputBindings>
+
+    <UserControl.Resources>
+        <!-- Category chip -->
+        <Style x:Key="ChipStyle" TargetType="ListBoxItem">
+            <Setter Property="Margin" Value="0,0,6,6" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="chip" CornerRadius="12" Padding="11,4"
+                                Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1">
+                            <TextBlock x:Name="txt" Text="{Binding}" FontSize="11.5"
+                                       Foreground="{StaticResource TextPrimaryBrush}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="chip" Property="BorderBrush" Value="{StaticResource GoldBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="chip" Property="Background" Value="{StaticResource GoldGradientBrush}" />
+                                <Setter TargetName="txt" Property="Foreground" Value="{StaticResource NavyBrush}" />
+                                <Setter TargetName="txt" Property="FontWeight" Value="SemiBold" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Picker row -->
+        <Style x:Key="PickerRowStyle" TargetType="ListBoxItem">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="row" Background="Transparent" Padding="14,9"
+                                BorderBrush="{StaticResource HairlineBrush}" BorderThickness="0,0,0,1">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="86" />
+                                    <ColumnDefinition Width="76" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding Name}" FontSize="13.5"
+                                               Foreground="{StaticResource TextPrimaryBrush}"
+                                               TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Text="{Binding Category}" FontSize="10"
+                                               Foreground="{StaticResource TextSecondaryBrush}" Opacity="0.7"
+                                               Margin="0,2,0,0" />
+                                </StackPanel>
+                                <!-- The ACTIVE rate is gold; the other is dimmed, so the
+                                     Clean & Press / Press Only choice is always visible. -->
+                                <TextBlock x:Name="cleanPrice" Grid.Column="1" Text="{Binding CleanPressDisplay}"
+                                           FontSize="12.5" FontWeight="SemiBold"
+                                           Foreground="{StaticResource GoldDeepBrush}"
+                                           HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                <TextBlock x:Name="pressPrice" Grid.Column="2" Text="{Binding PressOnlyDisplay}"
+                                           FontSize="12.5" Opacity="0.65"
+                                           Foreground="{StaticResource TextSecondaryBrush}"
+                                           HorizontalAlignment="Right" VerticalAlignment="Center" />
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="row" Property="Background" Value="#0AC9A24B" />
+                            </Trigger>
+                            <!-- Highlighted row = the one Enter adds -->
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="row" Property="Background" Value="#1FC9A24B" />
+                                <Setter TargetName="row" Property="BorderBrush" Value="{StaticResource GoldBrush}" />
+                            </Trigger>
+
+                            <!-- Press Only chosen: swap which rate is emphasised -->
+                            <DataTrigger Binding="{Binding DataContext.IsPressOnly,
+                                                   RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True">
+                                <Setter TargetName="cleanPrice" Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
+                                <Setter TargetName="cleanPrice" Property="FontWeight" Value="Normal" />
+                                <Setter TargetName="cleanPrice" Property="Opacity" Value="0.65" />
+                                <Setter TargetName="pressPrice" Property="Foreground" Value="{StaticResource GoldDeepBrush}" />
+                                <Setter TargetName="pressPrice" Property="FontWeight" Value="SemiBold" />
+                                <Setter TargetName="pressPrice" Property="Opacity" Value="1" />
+                            </DataTrigger>
+
+                            <!-- Press Only chosen but this item has no such rate: fade the row -->
+                            <MultiDataTrigger>
+                                <MultiDataTrigger.Conditions>
+                                    <Condition Binding="{Binding DataContext.IsPressOnly,
+                                               RelativeSource={RelativeSource AncestorType=UserControl}}" Value="True" />
+                                    <Condition Binding="{Binding HasPressOnly}" Value="False" />
+                                </MultiDataTrigger.Conditions>
+                                <Setter TargetName="row" Property="Opacity" Value="0.55" />
+                            </MultiDataTrigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Cart line -->
+        <Style x:Key="CartLineStyle" TargetType="ListBoxItem">
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="row" Background="Transparent" Padding="12,9" CornerRadius="8"
+                                BorderBrush="{StaticResource HairlineBrush}" BorderThickness="0,0,0,1">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="76" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding Name}" FontSize="13"
+                                               Foreground="{StaticResource TextPrimaryBrush}"
+                                               TextTrimming="CharacterEllipsis" />
+
+                                    <!-- The rate is editable. The price list is a
+                                         starting point — its own note says the final
+                                         price follows inspection. -->
+                                    <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
+                                        <TextBlock Text="{Binding TypeLabel, Mode=OneWay}" FontSize="10"
+                                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                                   VerticalAlignment="Center" />
+                                        <TextBlock Text="  ·  AED" FontSize="10" VerticalAlignment="Center"
+                                                   Foreground="{StaticResource TextSecondaryBrush}" />
+                                        <TextBox Style="{StaticResource FieldBox}" Width="52" Margin="4,0,0,0"
+                                                 Padding="5,2" FontSize="10.5" TextAlignment="Right"
+                                                 Text="{Binding UnitPrice, UpdateSourceTrigger=PropertyChanged, StringFormat={}{0:0.##}}"
+                                                 ToolTip="The rate for this item — change it after inspection" />
+                                        <TextBlock Text="{Binding RepricedNote}" FontSize="9.5" Margin="6,0,0,0"
+                                                   VerticalAlignment="Center" FontStyle="Italic"
+                                                   Foreground="{StaticResource GoldDeepBrush}"
+                                                   Visibility="{Binding IsRepriced, Converter={StaticResource BoolToVis}}" />
+                                    </StackPanel>
+                                </StackPanel>
+
+                                <!-- Quantity stepper -->
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center"
+                                            Margin="8,0">
+                                    <Button Content="−" Width="26" Height="26" FontSize="15" Cursor="Hand"
+                                            Command="{Binding DataContext.DecreaseQtyCommand,
+                                                      RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                            CommandParameter="{Binding}" ToolTip="Decrease quantity (−)">
+                                        <Button.Template>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border Background="{StaticResource SurfaceBrush}" CornerRadius="6"
+                                                        BorderBrush="{StaticResource CardBorderBrush}"
+                                                        BorderThickness="1">
+                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                                      TextBlock.Foreground="{StaticResource GoldDeepBrush}" />
+                                                </Border>
+                                            </ControlTemplate>
+                                        </Button.Template>
+                                    </Button>
+                                    <TextBlock Text="{Binding Quantity}" MinWidth="26" TextAlignment="Center"
+                                               FontSize="13.5" FontWeight="SemiBold"
+                                               Foreground="{StaticResource TextPrimaryBrush}" VerticalAlignment="Center" />
+                                    <Button Content="+" Width="26" Height="26" FontSize="15" Cursor="Hand"
+                                            Command="{Binding DataContext.IncreaseQtyCommand,
+                                                      RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                            CommandParameter="{Binding}" ToolTip="Increase quantity (+)">
+                                        <Button.Template>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border Background="{StaticResource SurfaceBrush}" CornerRadius="6"
+                                                        BorderBrush="{StaticResource CardBorderBrush}"
+                                                        BorderThickness="1">
+                                                    <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                                      TextBlock.Foreground="{StaticResource GoldDeepBrush}" />
+                                                </Border>
+                                            </ControlTemplate>
+                                        </Button.Template>
+                                    </Button>
+                                </StackPanel>
+
+                                <TextBlock Grid.Column="2" Text="{Binding LineTotalDisplay}" FontSize="13"
+                                           FontWeight="SemiBold" Foreground="{StaticResource GoldDeepBrush}"
+                                           HorizontalAlignment="Right" VerticalAlignment="Center" />
+
+                                <!-- Remove -->
+                                <Button Grid.Column="3" Content="✕" Width="22" Height="22" Margin="8,0,0,0"
+                                        Cursor="Hand" FontSize="11"
+                                        Command="{Binding DataContext.RemoveLineCommand,
+                                                  RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                        CommandParameter="{Binding}" ToolTip="Remove this item">
+                                    <Button.Template>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border Background="Transparent" CornerRadius="4">
+                                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                                  TextBlock.Foreground="{StaticResource TextSecondaryBrush}" />
+                                            </Border>
+                                        </ControlTemplate>
+                                    </Button.Template>
+                                </Button>
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="row" Property="Background" Value="#1AC9A24B" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
+  <Grid>
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" MinWidth="380" />
+            <ColumnDefinition Width="400" />
+        </Grid.ColumnDefinitions>
+
+        <!-- ==================== LEFT: item picker ==================== -->
+        <Grid Grid.Column="0" Margin="34,32,22,0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <StackPanel Grid.Row="0">
+                <TextBlock Text="{Binding ScreenTitle}" FontFamily="{StaticResource SerifFont}"
+                           FontSize="32" FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}"
+                           TextOptions.TextFormattingMode="Ideal" TextOptions.TextRenderingMode="ClearType" />
+
+                <!-- Editing a placed order: say so, and say the number is kept -->
+                <Border CornerRadius="9" Padding="12,8" Margin="0,10,0,0"
+                        Background="#1FC9A24B" BorderBrush="#55C9A24B" BorderThickness="1"
+                        Visibility="{Binding IsEditing, Converter={StaticResource BoolToVis}}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="{Binding EditNote}" FontSize="12"
+                                   Foreground="{StaticResource GoldDeepBrush}" TextWrapping="Wrap"
+                                   VerticalAlignment="Center" />
+                        <Button Grid.Column="1" Style="{StaticResource OutlineButton}"
+                                Content="Start a new order instead" Padding="10,5" FontSize="11.5"
+                                Margin="10,0,0,0" Command="{Binding CancelEditCommand}"
+                                ToolTip="Leave this order unchanged and begin a fresh one" />
+                    </Grid>
+                </Border>
+            </StackPanel>
+
+            <!-- Service type: which rate an item is added at -->
+            <StackPanel Grid.Row="1" Margin="0,16,0,0">
+                <TextBlock Text="ADD ITEMS AT THIS RATE" FontSize="9.5" FontWeight="SemiBold"
+                           Foreground="{StaticResource GoldDeepBrush}" Margin="2,0,0,7" />
+                <StackPanel Orientation="Horizontal">
+                <RadioButton GroupName="svc" IsChecked="{Binding IsCleanPress, Mode=OneWay}"
+                             Command="{Binding SetServiceTypeCommand}" CommandParameter="clean"
+                             Cursor="Hand" ToolTip="Add items at the Clean &amp; Press rate">
+                    <RadioButton.Template>
+                        <ControlTemplate TargetType="RadioButton">
+                            <Border x:Name="b" CornerRadius="9,0,0,9" Padding="18,9"
+                                    Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1">
+                                <TextBlock x:Name="t" Text="Clean &amp; Press" FontSize="13"
+                                           Foreground="{StaticResource TextPrimaryBrush}" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <!-- The unselected half must still read as a live button.
+                                     Grey text on white looked disabled. -->
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="b" Property="Background" Value="#14C9A24B" />
+                                    <Setter TargetName="b" Property="BorderBrush" Value="{StaticResource GoldBrush}" />
+                                </Trigger>
+                                <Trigger Property="IsChecked" Value="True">
+                                    <Setter TargetName="b" Property="Background" Value="{StaticResource GoldGradientBrush}" />
+                                    <Setter TargetName="t" Property="Foreground" Value="{StaticResource NavyBrush}" />
+                                    <Setter TargetName="t" Property="FontWeight" Value="Bold" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </RadioButton.Template>
+                </RadioButton>
+                <RadioButton GroupName="svc" IsChecked="{Binding IsPressOnly, Mode=OneWay}"
+                             Command="{Binding SetServiceTypeCommand}" CommandParameter="press"
+                             Cursor="Hand" ToolTip="Add items at the Press Only rate">
+                    <RadioButton.Template>
+                        <ControlTemplate TargetType="RadioButton">
+                            <Border x:Name="b" CornerRadius="0,9,9,0" Padding="18,9"
+                                    Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="0,1,1,1">
+                                <TextBlock x:Name="t" Text="Press Only" FontSize="13"
+                                           Foreground="{StaticResource TextPrimaryBrush}" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="b" Property="Background" Value="#14C9A24B" />
+                                    <Setter TargetName="b" Property="BorderBrush" Value="{StaticResource GoldBrush}" />
+                                </Trigger>
+                                <Trigger Property="IsChecked" Value="True">
+                                    <Setter TargetName="b" Property="Background" Value="{StaticResource GoldGradientBrush}" />
+                                    <Setter TargetName="t" Property="Foreground" Value="{StaticResource NavyBrush}" />
+                                    <Setter TargetName="t" Property="FontWeight" Value="Bold" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </RadioButton.Template>
+                </RadioButton>
+                </StackPanel>
+            </StackPanel>
+
+            <!-- Search -->
+            <Grid Grid.Row="2" Margin="0,14,0,0">
+                <TextBox x:Name="SearchBox" Style="{StaticResource FieldBox}"
+                         Text="{Binding Search, UpdateSourceTrigger=PropertyChanged}"
+                         ToolTip="Search items (Ctrl+F) · ↑↓ to move · Enter to add" />
+                <TextBlock Text="Search item, then ↓ and Enter to add…   (Ctrl+F)" IsHitTestVisible="False"
+                           Foreground="{StaticResource TextSecondaryBrush}" Opacity="0.7" FontSize="14"
+                           Margin="14,0,0,0" VerticalAlignment="Center"
+                           Visibility="{Binding IsSearchEmpty, Converter={StaticResource BoolToVis}}" />
+            </Grid>
+
+            <!-- Categories -->
+            <ListBox Grid.Row="3" ItemsSource="{Binding Categories}"
+                     SelectedItem="{Binding SelectedCategory, Mode=TwoWay}"
+                     ItemContainerStyle="{StaticResource ChipStyle}"
+                     Background="Transparent" BorderThickness="0" Margin="0,12,0,6"
+                     MaxHeight="70" Focusable="False"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                <ListBox.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel />
+                    </ItemsPanelTemplate>
+                </ListBox.ItemsPanel>
+            </ListBox>
+
+            <!-- Items -->
+            <Grid Grid.Row="4">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <!-- Column headings — the active rate is gold -->
+                <Border Grid.Row="0" Background="{StaticResource SurfaceAltBrush}" CornerRadius="8,8,0,0" Padding="14,7"
+                        Visibility="{Binding ShowPicker, Converter={StaticResource BoolToVis}}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="86" />
+                            <ColumnDefinition Width="76" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="ITEM" FontSize="9.5" FontWeight="SemiBold"
+                                   Foreground="{StaticResource TextSecondaryBrush}" />
+                        <TextBlock x:Name="cleanHead" Grid.Column="1" Text="CLEAN &amp; PRESS" FontSize="9.5"
+                                   FontWeight="SemiBold" Foreground="{StaticResource GoldDeepBrush}"
+                                   HorizontalAlignment="Right">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Opacity" Value="1" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsPressOnly}" Value="True">
+                                            <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
+                                            <Setter Property="Opacity" Value="0.5" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                        <TextBlock x:Name="pressHead" Grid.Column="2" Text="PRESS ONLY" FontSize="9.5"
+                                   FontWeight="SemiBold" HorizontalAlignment="Right">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
+                                    <Setter Property="Opacity" Value="0.5" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsPressOnly}" Value="True">
+                                            <Setter Property="Foreground" Value="{StaticResource GoldDeepBrush}" />
+                                            <Setter Property="Opacity" Value="1" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </Grid>
+                </Border>
+
+                <Grid Grid.Row="1">
+                <TextBlock Text="Loading the price list…" Foreground="{StaticResource TextSecondaryBrush}"
+                           HorizontalAlignment="Center" Margin="0,40,0,0" FontSize="13.5"
+                           Visibility="{Binding Loading, Converter={StaticResource BoolToVis}}" />
+                <TextBlock Text="{Binding Error}" Foreground="{StaticResource ErrorBrush}" TextWrapping="Wrap"
+                           HorizontalAlignment="Center" TextAlignment="Center" Margin="20,40,20,0"
+                           Visibility="{Binding HasError, Converter={StaticResource BoolToVis}}" />
+                <ListBox x:Name="PickerList" ItemsSource="{Binding PickerItems}"
+                         SelectedItem="{Binding SelectedPickerItem, Mode=TwoWay}"
+                         ItemContainerStyle="{StaticResource PickerRowStyle}"
+                         Background="Transparent" BorderThickness="0" Padding="0,0,0,14"
+                         HorizontalContentAlignment="Stretch"
+                         MouseDoubleClick="OnPickerDoubleClick"
+                         ToolTip="Double-click an item to add it, or highlight it and press Enter"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         VirtualizingStackPanel.IsVirtualizing="True"
+                         VirtualizingStackPanel.VirtualizationMode="Recycling"
+                         Visibility="{Binding ShowPicker, Converter={StaticResource BoolToVis}}" />
+                </Grid>
+            </Grid>
+        </Grid>
+
+        <!-- ==================== RIGHT: the order ==================== -->
+        <Border Grid.Column="1" Background="{StaticResource SurfaceBrush}"
+                BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1,0,0,0">
+            <Grid Margin="20,26,20,0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <!-- Title + clear -->
+                <Grid Grid.Row="0">
+                    <StackPanel>
+                        <TextBlock Text="Current Order" FontFamily="{StaticResource SerifFont}" FontSize="21"
+                                   FontWeight="SemiBold" Foreground="{StaticResource TextPrimaryBrush}" />
+                        <TextBlock Text="{Binding ItemCountText}" FontSize="11.5"
+                                   Foreground="{StaticResource TextSecondaryBrush}" Margin="0,3,0,0"
+                                   Visibility="{Binding HasLines, Converter={StaticResource BoolToVis}}" />
+                    </StackPanel>
+                    <Button Style="{StaticResource OutlineButton}" Content="Clear" Padding="10,5"
+                            HorizontalAlignment="Right" VerticalAlignment="Top"
+                            Command="{Binding ClearOrderCommand}" ToolTip="Remove all items from this order"
+                            Visibility="{Binding HasLines, Converter={StaticResource BoolToVis}}" />
+                </Grid>
+
+                <!-- Customer — click or Alt+C to choose -->
+                <Button Grid.Row="1" Margin="0,16,0,0" Cursor="Hand" HorizontalContentAlignment="Stretch"
+                        Command="{Binding OpenCustomerPickerCommand}"
+                        ToolTip="Choose the customer for this order (Alt+C)">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="b" Padding="14,11" CornerRadius="10"
+                                    Background="{StaticResource SurfaceAltBrush}"
+                                    BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1">
+                                <ContentPresenter />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="b" Property="BorderBrush" Value="{StaticResource GoldBrush}" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Button.Template>
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="CUSTOMER" FontSize="9.5" FontWeight="SemiBold"
+                                       Foreground="{StaticResource GoldDeepBrush}" />
+                            <!-- Nothing chosen yet -->
+                            <TextBlock Text="No customer selected" FontSize="13"
+                                       Foreground="{StaticResource TextSecondaryBrush}" Margin="0,4,0,0"
+                                       Visibility="{Binding NoCustomer, Converter={StaticResource BoolToVis}}" />
+                            <!-- Chosen -->
+                            <StackPanel Visibility="{Binding HasCustomer, Converter={StaticResource BoolToVis}}"
+                                        Margin="0,4,0,0">
+                                <TextBlock Text="{Binding Customer.Name}" FontSize="14" FontWeight="SemiBold"
+                                           Foreground="{StaticResource TextPrimaryBrush}"
+                                           TextTrimming="CharacterEllipsis" />
+                                <TextBlock Text="{Binding Customer.PhoneDisplay}" FontSize="11"
+                                           Foreground="{StaticResource TextSecondaryBrush}" Margin="0,2,0,0" />
+                            </StackPanel>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <!-- WEBSITE / WALK-IN badge -->
+                            <Border CornerRadius="9" Padding="8,3" Background="#1FC9A24B"
+                                    Visibility="{Binding HasCustomer, Converter={StaticResource BoolToVis}}">
+                                <TextBlock Text="{Binding Customer.Badge}" FontSize="9" FontWeight="SemiBold"
+                                           Foreground="{StaticResource GoldDeepBrush}" />
+                            </Border>
+                            <TextBlock Text="Alt+C" FontSize="10" Foreground="{StaticResource TextSecondaryBrush}"
+                                       Opacity="0.7" HorizontalAlignment="Right" Margin="0,3,0,0" />
+                        </StackPanel>
+                    </Grid>
+                </Button>
+
+                <!-- Lines -->
+                <Grid Grid.Row="2" Margin="0,14,0,0">
+                    <StackPanel VerticalAlignment="Center" Margin="0,0,0,40"
+                                Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVis}}">
+                        <TextBlock Text="&#xE7BF;" FontFamily="Segoe MDL2 Assets" FontSize="30"
+                                   Foreground="{StaticResource TextSecondaryBrush}" Opacity="0.5"
+                                   HorizontalAlignment="Center" />
+                        <TextBlock Text="No items yet" FontSize="13.5" Foreground="{StaticResource TextSecondaryBrush}"
+                                   HorizontalAlignment="Center" Margin="0,12,0,0" />
+                        <TextBlock Text="Search on the left, then press Enter" FontSize="11.5"
+                                   Foreground="{StaticResource TextSecondaryBrush}" Opacity="0.7"
+                                   HorizontalAlignment="Center" Margin="0,5,0,0" />
+                    </StackPanel>
+
+                    <ListBox ItemsSource="{Binding Lines}" SelectedItem="{Binding SelectedLine, Mode=TwoWay}"
+                             ItemContainerStyle="{StaticResource CartLineStyle}"
+                             Background="Transparent" BorderThickness="0"
+                             HorizontalContentAlignment="Stretch"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             Visibility="{Binding HasLines, Converter={StaticResource BoolToVis}}" />
+                </Grid>
+
+                <!-- Options + totals -->
+                <StackPanel Grid.Row="3" Margin="0,10,0,18">
+
+                    <!-- Express / payment -->
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <ToggleButton Grid.Column="0" IsChecked="{Binding IsExpress}" Cursor="Hand"
+                                      HorizontalAlignment="Left"
+                                      ToolTip="Express service — rush turnaround, adds 50% of the subtotal (Alt+U)">
+                            <ToggleButton.Template>
+                                <ControlTemplate TargetType="ToggleButton">
+                                    <Border x:Name="b" CornerRadius="9" Padding="12,6"
+                                            Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1">
+                                        <TextBlock x:Name="t" FontSize="11.5" Foreground="{StaticResource TextPrimaryBrush}">
+                                            <Run Text="&#xE945;" FontFamily="Segoe MDL2 Assets" />
+                                            <Run Text=" Express Service  ·  Alt+U" />
+                                        </TextBlock>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsChecked" Value="True">
+                                            <Setter TargetName="b" Property="Background" Value="{StaticResource GoldGradientBrush}" />
+                                            <Setter TargetName="t" Property="Foreground" Value="{StaticResource NavyBrush}" />
+                                            <Setter TargetName="t" Property="FontWeight" Value="Bold" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </ToggleButton.Template>
+                        </ToggleButton>
+
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" ToolTip="Payment method (Alt+P)">
+                            <RadioButton GroupName="pay" IsChecked="{Binding IsCod, Mode=OneWay}" Cursor="Hand"
+                                         Command="{Binding SetPaymentCommand}" CommandParameter="cod">
+                                <RadioButton.Template>
+                                    <ControlTemplate TargetType="RadioButton">
+                                        <Border x:Name="b" CornerRadius="8,0,0,8" Padding="12,6"
+                                                Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1">
+                                            <TextBlock x:Name="t" Text="COD" FontSize="11.5"
+                                                       Foreground="{StaticResource TextPrimaryBrush}" />
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsChecked" Value="True">
+                                                <Setter TargetName="b" Property="Background" Value="{StaticResource GoldGradientBrush}" />
+                                                <Setter TargetName="t" Property="Foreground" Value="{StaticResource NavyBrush}" />
+                                                <Setter TargetName="t" Property="FontWeight" Value="Bold" />
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </RadioButton.Template>
+                            </RadioButton>
+                            <RadioButton GroupName="pay" IsChecked="{Binding IsCard, Mode=OneWay}" Cursor="Hand"
+                                         Command="{Binding SetPaymentCommand}" CommandParameter="card">
+                                <RadioButton.Template>
+                                    <ControlTemplate TargetType="RadioButton">
+                                        <Border x:Name="b" CornerRadius="0" Padding="12,6"
+                                                Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="0,1,1,1">
+                                            <TextBlock x:Name="t" Text="Card" FontSize="11.5"
+                                                       Foreground="{StaticResource TextPrimaryBrush}" />
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="b" Property="Background" Value="#14C9A24B" />
+                                                <Setter TargetName="b" Property="BorderBrush" Value="{StaticResource GoldBrush}" />
+                                            </Trigger>
+                                            <Trigger Property="IsChecked" Value="True">
+                                                <Setter TargetName="b" Property="Background" Value="{StaticResource GoldGradientBrush}" />
+                                                <Setter TargetName="t" Property="Foreground" Value="{StaticResource NavyBrush}" />
+                                                <Setter TargetName="t" Property="FontWeight" Value="Bold" />
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </RadioButton.Template>
+                            </RadioButton>
+                            <RadioButton GroupName="pay" IsChecked="{Binding IsOnline, Mode=OneWay}" Cursor="Hand"
+                                         Command="{Binding SetPaymentCommand}" CommandParameter="online">
+                                <RadioButton.Template>
+                                    <ControlTemplate TargetType="RadioButton">
+                                        <Border x:Name="b" CornerRadius="0,8,8,0" Padding="12,6"
+                                                Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="0,1,1,1">
+                                            <TextBlock x:Name="t" Text="Online" FontSize="11.5"
+                                                       Foreground="{StaticResource TextPrimaryBrush}" />
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsChecked" Value="True">
+                                                <Setter TargetName="b" Property="Background" Value="{StaticResource GoldGradientBrush}" />
+                                                <Setter TargetName="t" Property="Foreground" Value="{StaticResource NavyBrush}" />
+                                                <Setter TargetName="t" Property="FontWeight" Value="Bold" />
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </RadioButton.Template>
+                            </RadioButton>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Payment status. Separate from the method above: a COD order
+                         can be settled at the counter, and an online order can still
+                         be waiting for the transfer. -->
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock Grid.Column="0" Text="PAYMENT STATUS" FontSize="9.5" FontWeight="SemiBold"
+                                   Foreground="{StaticResource GoldDeepBrush}" VerticalAlignment="Center" />
+
+                        <StackPanel Grid.Column="1" Orientation="Horizontal"
+                                    ToolTip="Has the customer paid yet? (Alt+S)">
+                            <RadioButton GroupName="paid" IsChecked="{Binding IsPending, Mode=OneWay}" Cursor="Hand"
+                                         Command="{Binding SetPaidCommand}" CommandParameter="pending">
+                                <RadioButton.Template>
+                                    <ControlTemplate TargetType="RadioButton">
+                                        <Border x:Name="b" CornerRadius="8,0,0,8" Padding="12,6"
+                                                Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1">
+                                            <TextBlock x:Name="t" Text="Pending" FontSize="11.5"
+                                                       Foreground="{StaticResource TextPrimaryBrush}" />
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="b" Property="Background" Value="#14C9A24B" />
+                                                <Setter TargetName="b" Property="BorderBrush" Value="{StaticResource GoldBrush}" />
+                                            </Trigger>
+                                            <Trigger Property="IsChecked" Value="True">
+                                                <Setter TargetName="b" Property="Background" Value="{StaticResource GoldGradientBrush}" />
+                                                <Setter TargetName="t" Property="Foreground" Value="{StaticResource NavyBrush}" />
+                                                <Setter TargetName="t" Property="FontWeight" Value="Bold" />
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </RadioButton.Template>
+                            </RadioButton>
+                            <RadioButton GroupName="paid" IsChecked="{Binding IsPaid, Mode=OneWay}" Cursor="Hand"
+                                         Command="{Binding SetPaidCommand}" CommandParameter="paid">
+                                <RadioButton.Template>
+                                    <ControlTemplate TargetType="RadioButton">
+                                        <Border x:Name="b" CornerRadius="0,8,8,0" Padding="12,6"
+                                                Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="0,1,1,1">
+                                            <TextBlock x:Name="t" Text="Paid" FontSize="11.5"
+                                                       Foreground="{StaticResource TextPrimaryBrush}" />
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="b" Property="Background" Value="#14C9A24B" />
+                                                <Setter TargetName="b" Property="BorderBrush" Value="{StaticResource GoldBrush}" />
+                                            </Trigger>
+                                            <!-- Paid reads green, not gold: it is a state of the
+                                                 world, not a switch the staff member set. -->
+                                            <Trigger Property="IsChecked" Value="True">
+                                                <Setter TargetName="b" Property="Background" Value="#FF2E9E5B" />
+                                                <Setter TargetName="b" Property="BorderBrush" Value="#FF1B6B3F" />
+                                                <Setter TargetName="t" Property="Foreground" Value="White" />
+                                                <Setter TargetName="t" Property="FontWeight" Value="Bold" />
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </RadioButton.Template>
+                            </RadioButton>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Anything the next person handling these clothes needs to
+                         know. Staff-facing: it is stored on the order but stays off
+                         the customer's invoice. -->
+                    <Grid Margin="0,0,0,12">
+                        <TextBox x:Name="NotesBox" Style="{StaticResource FieldBox}"
+                                 Padding="10,7" FontSize="11.5" MaxHeight="60"
+                                 TextWrapping="Wrap" AcceptsReturn="False"
+                                 Text="{Binding Notes, UpdateSourceTrigger=PropertyChanged}"
+                                 ToolTip="Anything the next person handling these clothes needs to know — a stain, a delicate fabric, when the customer is collecting (Ctrl+M). Saved with the order; never printed on the invoice." />
+                        <!-- The examples are the label. "Note for staff" alone left
+                             even the owner unsure what belonged here. -->
+                        <TextBlock Text="Note for staff — stain on collar, no starch…  (Ctrl+M)"
+                                   IsHitTestVisible="False"
+                                   Foreground="{StaticResource TextSecondaryBrush}" Opacity="0.7"
+                                   FontSize="11.5" Margin="12,0,0,0" VerticalAlignment="Center"
+                                   Visibility="{Binding IsNotesEmpty, Converter={StaticResource BoolToVis}}" />
+                    </Grid>
+
+                    <Border Height="1" Background="{StaticResource HairlineBrush}" Margin="0,0,0,12" />
+
+                    <!-- Subtotal -->
+                    <Grid Margin="0,0,0,7">
+                        <TextBlock Text="Subtotal" FontSize="12.5" Foreground="{StaticResource TextSecondaryBrush}" />
+                        <TextBlock Text="{Binding SubtotalDisplay}" FontSize="12.5"
+                                   Foreground="{StaticResource TextPrimaryBrush}" HorizontalAlignment="Right" />
+                    </Grid>
+
+                    <!-- Express surcharge (only while Express is on) -->
+                    <Grid Margin="0,0,0,7"
+                          Visibility="{Binding IsExpress, Converter={StaticResource BoolToVis}}">
+                        <!-- Names the amount it is 50% OF: staff read the cart total,
+                             then a bigger grand total, and the gap has to explain
+                             itself without anyone doing the sum in their head. -->
+                        <TextBlock FontSize="12.5" Foreground="{StaticResource GoldDeepBrush}">
+                            <Run Text="&#xE945;" FontFamily="Segoe MDL2 Assets" FontSize="11" />
+                            <Run Text="{Binding ExpressLabel, Mode=OneWay}" />
+                        </TextBlock>
+                        <TextBlock Text="{Binding ExpressDisplay}" FontSize="12.5"
+                                   Foreground="{StaticResource GoldDeepBrush}" HorizontalAlignment="Right" />
+                    </Grid>
+
+                    <!-- Discount -->
+                    <Grid Margin="0,0,0,7">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="Discount" FontSize="12.5" Foreground="{StaticResource TextSecondaryBrush}"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Text="Ctrl+D" FontSize="9.5" Foreground="{StaticResource TextSecondaryBrush}"
+                                       Opacity="0.6" Margin="6,0,0,0" VerticalAlignment="Center" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                            <TextBlock Text="AED" FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"
+                                       VerticalAlignment="Center" Margin="0,0,6,0" />
+                            <TextBox x:Name="DiscountBox" Style="{StaticResource FieldBox}" Width="76"
+                                     Padding="8,4" FontSize="12.5" TextAlignment="Right"
+                                     Text="{Binding Discount, UpdateSourceTrigger=PropertyChanged, StringFormat={}{0:0.##}}"
+                                     ToolTip="Flat discount in AED (Ctrl+D)" />
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Why the discount is there. Staff are asked at the counter, and
+                         "the computer did it" is not an answer a customer accepts. -->
+                    <Border CornerRadius="7" Padding="9,6" Margin="0,0,0,8"
+                            Background="{StaticResource SurfaceAltBrush}"
+                            BorderBrush="{StaticResource GoldBrush}" BorderThickness="1"
+                            Visibility="{Binding FirstOrderDiscount, Converter={StaticResource BoolToVis}}">
+                        <TextBlock Text="{Binding FirstOrderDiscountNote}" FontSize="11"
+                                   FontWeight="SemiBold" TextWrapping="Wrap"
+                                   Foreground="{StaticResource GoldDeepBrush}"
+                                   ToolTip="Applied automatically — this customer has not ordered before. Type over the discount to take it off." />
+                    </Border>
+
+                    <!-- VAT -->
+                    <Grid Margin="0,0,0,10">
+                        <StackPanel Orientation="Horizontal">
+                            <CheckBox IsChecked="{Binding VatEnabled}" VerticalAlignment="Center" Cursor="Hand"
+                                      ToolTip="Add 5% UAE VAT to this order (Ctrl+T)">
+                                <CheckBox.Template>
+                                    <ControlTemplate TargetType="CheckBox">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Border x:Name="box" Width="16" Height="16" CornerRadius="4"
+                                                    Background="{StaticResource SurfaceBrush}"
+                                                    BorderBrush="{StaticResource CardBorderBrush}" BorderThickness="1">
+                                                <TextBlock x:Name="tick" Text="&#xE73E;" FontFamily="Segoe MDL2 Assets"
+                                                           FontSize="9" Foreground="{StaticResource NavyBrush}"
+                                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                           Visibility="Collapsed" />
+                                            </Border>
+                                            <TextBlock Text="VAT (5%)" FontSize="12.5" Margin="8,0,0,0"
+                                                       Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" />
+                                            <TextBlock Text="Ctrl+T" FontSize="9.5" Margin="6,0,0,0" Opacity="0.6"
+                                                       Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsChecked" Value="True">
+                                                <Setter TargetName="box" Property="Background" Value="{StaticResource GoldGradientBrush}" />
+                                                <Setter TargetName="tick" Property="Visibility" Value="Visible" />
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </CheckBox.Template>
+                            </CheckBox>
+                        </StackPanel>
+                        <TextBlock Text="{Binding VatDisplay}" FontSize="12.5"
+                                   Foreground="{StaticResource TextPrimaryBrush}" HorizontalAlignment="Right"
+                                   Visibility="{Binding VatEnabled, Converter={StaticResource BoolToVis}}" />
+                    </Grid>
+
+                    <!-- TOTAL band -->
+                    <Border CornerRadius="10" Padding="14,11" Background="{StaticResource GoldGradientBrush}">
+                        <Grid>
+                            <TextBlock Text="TOTAL" FontSize="13" FontWeight="Bold"
+                                       Foreground="{StaticResource NavyBrush}" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding TotalDisplay}" FontSize="20" FontWeight="Bold"
+                                       Foreground="{StaticResource NavyBrush}" HorizontalAlignment="Right" />
+                        </Grid>
+                    </Border>
+
+                    <!-- Save. Disabled until there is both a customer and an item —
+                         the database rejects an order missing either. -->
+                    <Button Style="{StaticResource GoldButton}" Margin="0,12,0,0"
+                            Content="{Binding SaveLabel}"
+                            Command="{Binding SaveOrderCommand}"
+                            ToolTip="Save this order to the shared database (Ctrl+Enter)" />
+
+                    <!-- Saved confirmation: the P-number staff read back to the customer -->
+                    <Border Margin="0,10,0,0" CornerRadius="9" Padding="12,9"
+                            Background="#1F2E9E5B" BorderBrush="#662E9E5B" BorderThickness="1"
+                            Visibility="{Binding HasSavedMessage, Converter={StaticResource BoolToVis}}">
+                        <TextBlock Text="{Binding SavedMessage}" FontSize="12.5" FontWeight="SemiBold"
+                                   Foreground="#FF1B6B3F" TextWrapping="Wrap" />
+                    </Border>
+
+                    <TextBlock Text="{Binding SaveError}" FontSize="12" Foreground="{StaticResource ErrorBrush}"
+                               TextWrapping="Wrap" Margin="2,10,2,0"
+                               Visibility="{Binding HasSaveError, Converter={StaticResource BoolToVis}}" />
+
+                    <TextBlock Text="{Binding Hint}" FontSize="11.5" Foreground="{StaticResource GoldDeepBrush}"
+                               TextWrapping="Wrap" Margin="2,10,2,0"
+                               Visibility="{Binding HasHint, Converter={StaticResource BoolToVis}}" />
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+
+    <!-- ============ Customer picker overlay (Alt+C / F2) ============ -->
+    <ContentControl Content="{Binding CustomerPicker}"
+                    Visibility="{Binding IsCustomerPickerOpen, Converter={StaticResource BoolToVis}}">
+        <ContentControl.ContentTemplate>
+            <DataTemplate>
+                <secv:CustomerPickerView />
+            </DataTemplate>
+        </ContentControl.ContentTemplate>
+    </ContentControl>
+  </Grid>
+</UserControl>

@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+
+    <!-- App identity (shows in file properties / About screens later) -->
+    <RootNamespace>LinenLuxe.POS</RootNamespace>
+    <AssemblyName>LinenLuxe.POS</AssemblyName>
+    <Product>LinenLuxe POS</Product>
+    <Company>LinenLuxe Laundry</Company>
+    <Version>0.1.0</Version>
+    <AssemblyTitle>LinenLuxe Laundry — Point of Sale</AssemblyTitle>
+
+    <!-- High-DPI: render natively crisp on scaled/4K displays -->
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
+
+  <!-- Brand logo shipped inside the app (used on the window, later on invoices).
+       Resource (not Content) = embedded in the exe, lossless, nothing to ship
+       alongside. The hero artwork is the full-quality original, untouched. -->
+  <ItemGroup>
+    <Resource Include="Assets\linenluxe-logo.png" />
+    <Resource Include="Assets\linenluxe-logo-hero.png" />
+    <!-- The web invoice's own 900x600 artwork, byte-for-byte, so the counter and
+         the website print the same header. The hero version above carries more
+         white padding, which the login screen wants and the invoice does not. -->
+    <Resource Include="Assets\linenluxe-logo-invoice.png" />
+    <!-- Great Vibes (SIL OFL 1.1) — the invoice's "Thank You!" script. Shipped
+         with the app, exactly as the web invoice embeds it, so the counter and
+         the website produce the same document on any machine. -->
+    <Resource Include="Assets\GreatVibes.ttf" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="PDFsharp-MigraDoc" Version="6.2.4" />
+    <PackageReference Include="Supabase" Version="1.1.1" />
+  </ItemGroup>
+
+</Project>

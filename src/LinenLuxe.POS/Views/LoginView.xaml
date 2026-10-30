@@ -1,0 +1,85 @@
+<UserControl x:Class="LinenLuxe.POS.Views.LoginView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignHeight="640" d:DesignWidth="960">
+
+    <!-- One centered card: brand logo on top, sign-in below.
+         Logo and form share a single card on purpose — two stacked cards made
+         the screen taller than the window and it scrolled. -->
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
+                    Width="410" Margin="0,12,0,12">
+
+            <Border Style="{StaticResource Card}" CornerRadius="16" Padding="28,18">
+                <Border.Effect>
+                    <DropShadowEffect Color="#FF8C7A55" BlurRadius="18" ShadowDepth="3"
+                                      Direction="270" Opacity="0.16" />
+                </Border.Effect>
+
+                <StackPanel>
+                    <!-- ===== Brand logo =====
+                         The artwork is the original PNG, untouched — its background
+                         is solid white (no alpha), which is exactly why it lives on
+                         this white card: the white simply disappears. Keying the
+                         white out instead would eat the gold's glow.
+
+                         Quality: the full 1264px image is decoded and scaled DOWN by
+                         the renderer (HighQuality = Fant), never scaled up. No
+                         DecodePixelWidth — that throws away detail before it ever
+                         reaches the screen. -->
+                    <Image Source="/Assets/linenluxe-logo-hero.png"
+                           Width="196" Stretch="Uniform" HorizontalAlignment="Center"
+                           RenderOptions.BitmapScalingMode="HighQuality"
+                           UseLayoutRounding="True" SnapsToDevicePixels="True" />
+
+                    <!-- Module name -->
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center"
+                                Margin="0,0,0,14">
+                        <TextBlock Text="&#x2726;" Foreground="{StaticResource GoldDeepBrush}"
+                                   FontSize="10" VerticalAlignment="Center" Margin="0,0,7,0" />
+                        <TextBlock Text="{Binding ModuleName}" FontSize="12" FontWeight="SemiBold"
+                                   Foreground="{StaticResource GoldDeepBrush}" VerticalAlignment="Center" />
+                        <TextBlock Text="&#x2726;" Foreground="{StaticResource GoldDeepBrush}"
+                                   FontSize="10" VerticalAlignment="Center" Margin="7,0,0,0" />
+                    </StackPanel>
+
+                    <TextBlock Text="Staff Sign In" FontFamily="{StaticResource SerifFont}"
+                               FontSize="21" FontWeight="SemiBold"
+                               Foreground="{StaticResource TextPrimaryBrush}" HorizontalAlignment="Center" />
+                    <TextBlock Text="Use your staff or admin account"
+                               FontSize="12" Foreground="{StaticResource TextSecondaryBrush}"
+                               HorizontalAlignment="Center" Margin="0,4,0,14" />
+
+                    <!-- Email -->
+                    <TextBlock Text="EMAIL" Style="{StaticResource FieldLabel}" Margin="2,0,0,5" />
+                    <TextBox x:Name="EmailBox" Style="{StaticResource FieldBox}" Padding="12,7"
+                             Text="{Binding Email, UpdateSourceTrigger=PropertyChanged}" />
+
+                    <!-- Password -->
+                    <TextBlock Text="PASSWORD" Style="{StaticResource FieldLabel}" Margin="2,11,0,5" />
+                    <PasswordBox x:Name="PasswordField" Style="{StaticResource FieldPasswordBox}"
+                                 Padding="12,7"
+                                 PasswordChanged="PasswordField_PasswordChanged" />
+
+                    <!-- Error message -->
+                    <TextBlock Text="{Binding Error}" Foreground="{StaticResource ErrorBrush}" FontSize="12"
+                               TextWrapping="Wrap" Margin="2,10,2,0"
+                               Visibility="{Binding HasError, Converter={StaticResource BoolToVis}}" />
+
+                    <!-- Sign in (Enter submits via IsDefault) -->
+                    <Button Style="{StaticResource GoldButton}" Margin="0,14,0,0" Padding="18,10"
+                            Content="{Binding SignInLabel}"
+                            Command="{Binding SignInCommand}"
+                            IsDefault="True"
+                            ToolTip="Sign in (Enter)" />
+
+                    <TextBlock Text="Press Enter to sign in" FontSize="10.5"
+                               Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Center"
+                               Margin="0,7,0,0" />
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

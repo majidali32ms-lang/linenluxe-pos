@@ -1,0 +1,34 @@
+# ===== Secrets — NEVER commit =====
+.env
+*.env.local
+
+# ===== .NET build output =====
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+*.dll
+*.exe
+*.pdb
+
+# ===== Visual Studio / Rider / VS Code =====
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.userprefs
+
+# ===== NuGet =====
+*.nupkg
+packages/
+project.lock.json
+
+# ===== OS junk =====
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
